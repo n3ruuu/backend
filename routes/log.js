@@ -5,18 +5,6 @@ const router = express.Router()
 const db = require('../db')
 require('dotenv').config()
 
-const createLogsTable = `
-CREATE TABLE IF NOT EXISTS action_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    action VARCHAR(255) NOT NULL,
-    timestamp DATETIME NOT NULL
-)`
-
-db.query(createLogsTable, (err, result) => {
-	if (err) throw err
-	console.log('Action logs table ensured.')
-})
-
 router.post('/', (req, res) => {
 	console.log('Request Body:', req.body)
 	const { action, timestamp } = req.body

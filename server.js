@@ -14,7 +14,7 @@ const smsRouter = require('./routes/sms') // Import the SMS router
 require('dotenv').config()
 
 const app = express()
-const port = process.env.DB_PORT || 3000
+const port = 5000
 
 app.use(cors())
 app.use(express.json())

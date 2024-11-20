@@ -4,14 +4,6 @@ const router = express.Router()
 const db = require('../db')
 require('dotenv').config()
 
-db.connect((err) => {
-	if (err) {
-		console.error('Database connection failed:', err.message)
-	} else {
-		console.log('Database connected successfully')
-	}
-})
-
 // Endpoint for login authentication
 router.post('/', (req, res) => {
 	const { username, password } = req.body

@@ -2,18 +2,11 @@
 /* eslint-disable no-undef */
 const express = require('express')
 const router = express.Router()
-const mysql = require('mysql2')
 const multer = require('multer')
 const path = require('path')
-
+const db = require('../db')
 require('dotenv').config()
 
-const db = mysql.createConnection({
-	host: process.env.DB_HOST,
-	user: process.env.DB_USER,
-	password: process.env.DB_PASSWORD,
-	database: process.env.DB_NAME,
-})
 // Set up multer for image uploads
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {

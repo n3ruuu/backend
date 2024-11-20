@@ -11,10 +11,10 @@ const loginRouter = require('./routes/login')
 const logRouter = require('./routes/log')
 const applicationRouter = require('./routes/application')
 const smsRouter = require('./routes/sms') // Import the SMS router
+require('dotenv').config()
 
 const app = express()
-const port = 5000
-require('dotenv').config()
+const port = process.env.DB_PORT || 3000
 
 app.use(cors())
 app.use(express.json())
@@ -31,7 +31,7 @@ app.use('/login', loginRouter)
 app.use('/log', logRouter)
 app.use('/application', applicationRouter)
 app.use('/sms', smsRouter)
-	
+
 // Start the server
 app.listen(port, () => {
 	console.log(`Server running at http://localhost:${port}`)

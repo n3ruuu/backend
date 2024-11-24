@@ -26,7 +26,7 @@ function formatDate(date) {
 
 // Fetch all active news articles
 router.get('/', (req, res) => {
-	const query = 'SELECT id, headline, author, body, date, image, status FROM news'
+	const query = 'SELECT id, headline, author, body, date, images, status FROM news'
 
 	db.query(query, (err, results) => {
 		if (err) {
@@ -39,10 +39,10 @@ router.get('/', (req, res) => {
 	})
 })
 
-// Add a new news article with image upload
-router.post('/', upload.single('image'), (req, res) => {
+// Update to handle multiple images upload
+router.post('/', upload.array('images', 5), (req, res) => {
 	const { headline, author, body, date } = req.body
-	const image = req.file ? req.file.filename : null // Store filename if image is uploaded
+	const images = req.files ? req.files.map((file) => file.filename) : []
 
 	// Validate required fields
 	if (!headline || !author || !body) {
@@ -50,14 +50,14 @@ router.post('/', upload.single('image'), (req, res) => {
 	}
 
 	const query = `
-        INSERT INTO news (headline, author, body, date, image, status) 
+        INSERT INTO news (headline, author, body, date, images, status) 
         VALUES (?, ?, ?, ?, ?, 'Active')
     `
 
 	// Use the provided date or the current date if not specified
 	const articleDate = formatDate(date)
 
-	db.query(query, [headline, author, body, articleDate, image], (err, result) => {
+	db.query(query, [headline, author, body, articleDate, JSON.stringify(images)], (err, result) => {
 		if (err) {
 			console.error('Error inserting new article:', err.message)
 			return res.status(500).json({
@@ -71,46 +71,51 @@ router.post('/', upload.single('image'), (req, res) => {
 	})
 })
 
-// Edit a news article by ID
-router.put('/:id', upload.single('image'), (req, res) => {
+router.put('/:id', upload.array('images', 5), (req, res) => {
 	const { id } = req.params
 	const { headline, author, body, date } = req.body
-	const image = req.file ? req.file.filename : null
+	const images = req.files // req.files will contain the array of uploaded files
 
 	// Validate required fields
 	if (!headline || !author || !body) {
 		return res.status(400).json({ error: 'Headline, author, and body are required.' })
 	}
 
-	// Build the query and parameters dynamically, allowing image to be optional
-	let query = 'UPDATE news SET headline = ?, author = ?, body = ?, date = ?'
-	const params = [headline, author, body, formatDate(date)] // Format the date
-
-	if (image) {
-		query += ', image = ?'
-		params.push(image)
-	}
-	query += ' WHERE id = ?'
-	params.push(id)
-
-	db.query(query, params, (err, result) => {
+	// Get current images from the database (if any)
+	db.query('SELECT images FROM news WHERE id = ?', [id], (err, rows) => {
 		if (err) {
-			console.error('Error updating article:', err.message)
-			return res.status(500).json({
-				error: 'An error occurred while updating the news article.',
-			})
+			console.error('Error fetching current images:', err.message)
+			return res.status(500).json({ error: 'An error occurred while fetching the current images.' })
 		}
-		// Optionally fetch the updated news article after the update
-		db.query('SELECT * FROM news WHERE id = ?', [id], (err, rows) => {
+
+		const currentImages = rows[0]?.images ? JSON.parse(rows[0].images) : []
+		console.log('Current images from database:', currentImages)
+
+		const newImages = images.map((file) => file.filename)
+		console.log('Newly uploaded images:', newImages)
+
+		const finalImages = Array.from(new Set([...currentImages, ...newImages])) // Remove duplicates
+		console.log('Final list of images (after removing duplicates):', finalImages)
+
+		let query = 'UPDATE news SET headline = ?, author = ?, body = ?, date = ?, images = ? WHERE id = ?'
+		const params = [headline, author, body, formatDate(date), JSON.stringify(finalImages), id]
+
+		db.query(query, params, (err, result) => {
 			if (err) {
-				console.error('Error fetching updated article:', err.message)
-				return res.status(500).json({
-					error: 'An error occurred while fetching the updated news article.',
-				})
+				console.error('Error updating article:', err.message)
+				return res.status(500).json({ error: 'An error occurred while updating the news article.' })
 			}
-			res.status(200).json({
-				message: 'News article updated successfully',
-				updatedArticle: rows[0],
+
+			// Optionally fetch the updated news article after the update
+			db.query('SELECT * FROM news WHERE id = ?', [id], (err, rows) => {
+				if (err) {
+					console.error('Error fetching updated article:', err.message)
+					return res.status(500).json({ error: 'An error occurred while fetching the updated news article.' })
+				}
+				res.status(200).json({
+					message: 'News article updated successfully',
+					updatedArticle: rows[0],
+				})
 			})
 		})
 	})

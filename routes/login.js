@@ -21,7 +21,11 @@ router.post('/', (req, res) => {
 		const user = results[0]
 		// Optionally compare hashed passwords if using bcrypt
 		if (password === user.password) {
-			res.status(200).json({ message: 'Login successful', userId: user.id })
+			res.status(200).json({
+				message: 'Login successful',
+				userId: user.id,
+				username: user.username,
+			})
 		} else {
 			res.status(401).json({ message: 'Invalid username or password' })
 		}

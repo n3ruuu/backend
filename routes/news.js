@@ -81,23 +81,22 @@ router.put('/:id', upload.array('images', 5), (req, res) => {
 		return res.status(400).json({ error: 'Headline, author, and body are required.' })
 	}
 
-	// Get current images from the database (if any)
 	db.query('SELECT images FROM news WHERE id = ?', [id], (err, rows) => {
 		if (err) {
 			console.error('Error fetching current images:', err.message)
 			return res.status(500).json({ error: 'An error occurred while fetching the current images.' })
 		}
 
-		const currentImages = rows[0]?.images ? JSON.parse(rows[0].images) : []
-		console.log('Current images from database:', currentImages)
+		let finalImages = []
+		if (req.files && req.files.length > 0) {
+			// Replace current images with new ones if uploaded
+			finalImages = req.files.map((file) => file.filename)
+		} else {
+			// Retain current images if no new images are uploaded
+			finalImages = rows[0]?.images ? JSON.parse(rows[0].images) : []
+		}
 
-		const newImages = images.map((file) => file.filename)
-		console.log('Newly uploaded images:', newImages)
-
-		const finalImages = Array.from(new Set([...currentImages, ...newImages])) // Remove duplicates
-		console.log('Final list of images (after removing duplicates):', finalImages)
-
-		let query = 'UPDATE news SET headline = ?, author = ?, body = ?, date = ?, images = ? WHERE id = ?'
+		const query = 'UPDATE news SET headline = ?, author = ?, body = ?, date = ?, images = ? WHERE id = ?'
 		const params = [headline, author, body, formatDate(date), JSON.stringify(finalImages), id]
 
 		db.query(query, params, (err, result) => {
@@ -106,7 +105,7 @@ router.put('/:id', upload.array('images', 5), (req, res) => {
 				return res.status(500).json({ error: 'An error occurred while updating the news article.' })
 			}
 
-			// Optionally fetch the updated news article after the update
+			// Fetch and return the updated article
 			db.query('SELECT * FROM news WHERE id = ?', [id], (err, rows) => {
 				if (err) {
 					console.error('Error fetching updated article:', err.message)

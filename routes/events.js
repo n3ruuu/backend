@@ -1,8 +1,70 @@
 /* eslint-disable no-undef */
 const express = require('express')
 const router = express.Router()
+const multer = require('multer')
+const path = require('path')
+const fs = require('fs')
+const nodemailer = require('nodemailer')
 const db = require('../db')
 require('dotenv').config()
+
+// Set up multer for handling image uploads
+const upload = multer({ dest: 'uploads/' })
+
+router.post('/send-email', upload.single('image'), (req, res) => {
+	const { message, recipients } = req.body
+	const image = req.file // Get the uploaded image file
+
+	// Parse and sanitize recipient emails
+	let recipientList = []
+	try {
+		recipientList = JSON.parse(recipients).map((email) => email.trimEnd())
+	} catch (error) {
+		console.error('Invalid recipients format:', error)
+		return res.status(400).json({ message: 'Invalid recipient list format.' })
+	}
+
+	// Validate email addresses
+	const invalidEmails = recipientList.filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+	if (invalidEmails.length > 0) {
+		return res.status(400).json({ message: `Invalid email addresses: ${invalidEmails.join(', ')}` })
+	}
+
+	// Set up email transport
+	const transporter = nodemailer.createTransport({
+		service: 'gmail',
+		auth: {
+			user: process.env.EMAIL_USER,
+			pass: process.env.EMAIL_APP_PASSWORD,
+		},
+	})
+
+	// Prepare email details
+	const mailOptions = {
+		from: process.env.EMAIL_USER,
+		to: recipientList,
+		subject: 'Subject of the Email', // You can make this dynamic if needed
+		text: message,
+		attachments: image
+			? [
+					{
+						filename: path.basename(image.originalname),
+						path: image.path, // Path to the uploaded image
+					},
+			  ]
+			: [],
+	}
+
+	// Send the email
+	transporter.sendMail(mailOptions, (error, info) => {
+		if (error) {
+			console.error('Error sending email:', error)
+			return res.status(500).json({ message: 'Failed to send email' })
+		}
+		console.log('Email sent: ' + info.response)
+		res.status(200).json({ message: 'Email sent successfully' })
+	})
+})
 
 // Add a new event
 router.post('/', (req, res) => {

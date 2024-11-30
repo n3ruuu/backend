@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage })
 
 // router.js or the relevant route file
-router.post('/uploa', upload.single('file'), (req, res) => {
+router.post('/upload-proof', upload.single('file'), (req, res) => {
 	const { memberId } = req.body
 
 	// Ensure the file is uploaded and memberId is provided
@@ -34,7 +34,7 @@ router.post('/uploa', upload.single('file'), (req, res) => {
 	const filePath = req.file.filename // Only store the filename, not the full path
 
 	// SQL query to update the database with th filename and se to "Claimed"
-	const query = `UPDATE members SE = ? = "Claimed" WHERE id = ?`
+	const query = `UPDATE members SET proof = ?, benefitStatus = "Claimed" WHERE id = ?`
 
 	// Execute the query to update the database
 	db.query(query, [filePath, memberId], (err, result) => {
@@ -50,6 +50,43 @@ router.post('/uploa', upload.single('file'), (req, res) => {
 			// If no rows were affected, memberId might not be valid
 			return res.status(404).json({ error: 'Member not found' })
 		}
+	})
+})
+
+// POST route to handle file upload
+router.post('/upload-proofs', upload.single('file'), (req, res) => {
+	const { quarter, memberId } = req.body
+	const proofFileName = req.file ? req.file.filename : null
+
+	// Check if the file was uploaded
+	if (!proofFileName) {
+		return res.status(400).json({ success: false, message: 'No file uploaded.' })
+	}
+
+	// Ensure quarter and memberId are provided in the request body
+	if (!quarter || !memberId) {
+		return res.status(400).json({ success: false, message: 'Quarter and memberId are required.' })
+	}
+
+	// SQL query to update the proof and benefitStatus for the given quarter
+	const updateQuery = `
+        UPDATE members
+        SET proof${quarter} = ?, benefitStatus${quarter} = "Claimed"
+        WHERE id = ?
+    `
+
+	// Perform the database update
+	db.query(updateQuery, [proofFileName, memberId], (err, result) => {
+		if (err) {
+			console.error('Error updating database:', err)
+			return res.status(500).json({ success: false, message: 'Database error.' })
+		}
+
+		// Successfully updated the database
+		return res.json({
+			success: true,
+			message: `Proof for ${quarter} uploaded and status updated to 'Claimed'!`,
+		})
 	})
 })
 
@@ -89,6 +126,52 @@ router.put('/members-list/:id', (req, res) => {
 	})
 })
 
+// POST route to create a new financial assistance record
+router.post('/financial-assistance', (req, res) => {
+	const { benefitType, claimDate, programName, claimer, claimerRelationship } = req.body
+
+	// Perform the insert query (example for MySQL)
+	const query = `
+        INSERT INTO members (benefitType, claimDate, programName, claimer, claimerRelationship)
+        VALUES (?, ?, ?, ?, ?)
+    `
+	const values = [benefitType, claimDate, programName, claimer, claimerRelationship]
+
+	db.query(query, values, (err, result) => {
+		if (err) {
+			return res.status(500).json({ error: err.message })
+		}
+		return res.status(201).json({ message: 'Financial assistance record created successfully.' })
+	})
+})
+
+// POST route to create a new social pension record
+router.post('/social-pension', (req, res) => {
+	const { benefitType, claimDateQ1, claimerQ1, relationshipQ1, claimDateQ2, claimerQ2, relationshipQ2, claimDateQ3, claimerQ3, relationshipQ3, claimDateQ4, claimerQ4, relationshipQ4 } = req.body
+
+	// SQL query to insert data
+	const query = `
+        INSERT INTO members (
+            benefitType,
+            claimDateQ1, claimerQ1, relationshipQ1,
+            claimDateQ2, claimerQ2, relationshipQ2,
+            claimDateQ3, claimerQ3, relationshipQ3,
+            claimDateQ4, claimerQ4, relationshipQ4
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+	// Values to insert
+	const values = [benefitType, claimDateQ1, claimerQ1, relationshipQ1, claimDateQ2, claimerQ2, relationshipQ2, claimDateQ3, claimerQ3, relationshipQ3, claimDateQ4, claimerQ4, relationshipQ4]
+
+	// Execute the query
+	db.query(query, values, (err, result) => {
+		if (err) {
+			return res.status(500).json({ error: err.message })
+		}
+		return res.status(201).json({ message: 'Social pension record created successfully.' })
+	})
+})
+
 // PUT route to update a specific financial assistance record
 router.put('/financial-assistance/:id', (req, res) => {
 	const memberId = req.params.id // Extract the financial assistance record ID from the URL
@@ -115,6 +198,54 @@ router.put('/financial-assistance/:id', (req, res) => {
 		} else {
 			return res.status(404).json({ error: 'Record not found.' })
 		}
+	})
+})
+
+// PUT route to update an existing social pension record
+router.put('/social-pension/:id', (req, res) => {
+	const memberId = req.params.id
+	const { benefitType, claimDateQ1, claimerQ1, relationshipQ1, claimDateQ2, claimerQ2, relationshipQ2, claimDateQ3, claimerQ3, relationshipQ3, claimDateQ4, claimerQ4, relationshipQ4 } = req.body
+
+	// SQL query to update data
+	const query = `
+        UPDATE members SET
+            benefitType = ?,
+            claimDateQ1 = ?, claimerQ1 = ?, relationshipQ1 = ?,
+            claimDateQ2 = ?, claimerQ2 = ?, relationshipQ2 = ?,
+            claimDateQ3 = ?, claimerQ3 = ?, relationshipQ3 = ?,
+            claimDateQ4 = ?, claimerQ4 = ?, relationshipQ4 = ?
+        WHERE id = ?
+    `
+
+	// Values to update
+	const values = [
+		benefitType,
+		claimDateQ1,
+		claimerQ1,
+		relationshipQ1,
+		claimDateQ2,
+		claimerQ2,
+		relationshipQ2,
+		claimDateQ3,
+		claimerQ3,
+		relationshipQ3,
+		claimDateQ4,
+		claimerQ4,
+		relationshipQ4,
+		memberId, // ID for the WHERE clause
+	]
+
+	// Execute the query
+	db.query(query, values, (err, result) => {
+		if (err) {
+			return res.status(500).json({ error: err.message })
+		}
+
+		if (result.affectedRows === 0) {
+			return res.status(404).json({ message: 'Record not found.' })
+		}
+
+		return res.status(200).json({ message: 'Social pension record updated successfully.' })
 	})
 })
 

@@ -4,18 +4,18 @@ const router = express.Router()
 const db = require('../db')
 require('dotenv').config()
 
-// Endpoint for login authentication
+// Endpoint for login authentication (using username or email)
 router.post('/', (req, res) => {
-	const { username, password } = req.body
+	const { identifier, password } = req.body // 'identifier' can be either username or email
 
-	const query = 'SELECT * FROM admins WHERE username = ?'
-	db.query(query, [username], (err, results) => {
+	const query = 'SELECT * FROM admins WHERE username = ? OR email = ?'
+	db.query(query, [identifier, identifier], (err, results) => {
 		if (err) {
 			return res.status(500).json({ error: err.message })
 		}
 
 		if (results.length === 0) {
-			return res.status(401).json({ message: 'Invalid username or password' })
+			return res.status(401).json({ message: 'Invalid username/email or password' })
 		}
 
 		const user = results[0]
@@ -25,9 +25,32 @@ router.post('/', (req, res) => {
 				message: 'Login successful',
 				userId: user.id,
 				username: user.username,
+				email: user.email,
 			})
 		} else {
-			res.status(401).json({ message: 'Invalid username or password' })
+			res.status(401).json({ message: 'Invalid username/email or password' })
+		}
+	})
+})
+
+// New endpoint to check if an email exists
+router.get('/check-email', (req, res) => {
+	const { email } = req.query
+
+	if (!email) {
+		return res.status(400).json({ error: 'Email is required' })
+	}
+
+	const query = 'SELECT * FROM admins WHERE email = ?'
+	db.query(query, [email], (err, results) => {
+		if (err) {
+			return res.status(500).json({ error: err.message })
+		}
+
+		if (results.length > 0) {
+			res.status(200).json({ exists: true, message: 'Email found in admins table' })
+		} else {
+			res.status(404).json({ exists: false, message: 'Email not found in admins table' })
 		}
 	})
 })

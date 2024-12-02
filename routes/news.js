@@ -16,6 +16,7 @@ const storage = multer.diskStorage({
 		cb(null, Date.now() + path.extname(file.originalname)) // Unique filename with timestamp
 	},
 })
+
 const upload = multer({ storage: storage })
 
 // Utility function to handle date format (in case a date isn't passed)

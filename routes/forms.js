@@ -148,4 +148,56 @@ router.put('/archive/:id', (req, res) => {
 	})
 })
 
+router.post("/initiatives", upload.single("icon"), (req, res) => {
+    const category_name = req.body.category_name; // Access the category name properly
+    const icon_path = req.file ? `/uploads/${req.file.filename}` : null; // Get image path after upload
+
+    const query = `INSERT INTO initiatives (category_name, icon_path) VALUES (?, ?)`;
+
+    db.query(query, [category_name, icon_path], (err, result) => {
+        if (err) {
+            console.error("Error inserting data:", err);
+            return res.status(500).json({ message: "Failed to save form" });
+        }
+
+        res.status(200).json({ message: "Form saved successfully", data: result });
+    });
+});
+
+router.delete("/initiatives/:id", (req, res) => {
+    const categoryId = req.params.id; // Get the category ID from the route parameter
+    
+    const query = `DELETE FROM initiatives WHERE id = ?`; // Delete query based on category ID
+    
+    db.query(query, [categoryId], (err, result) => {
+        if (err) {
+            console.error("Error deleting category:", err);
+            return res.status(500).json({ message: "Failed to delete category" });
+        }
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Category not found" });
+        }
+
+        res.status(200).json({ message: "Category deleted successfully" });
+    });
+});
+
+
+
+router.get("/initiatives", (req, res) => {
+    const query = "SELECT id, category_name, icon_path FROM initiatives";
+    
+    db.query(query, (err, result) => {
+        if (err) {
+            console.error("Error fetching categories:", err);
+            return res.status(500).json({ message: "Failed to fetch categories" });
+        }
+
+        res.status(200).json(result); // Send categories back in response
+    });
+});
+
+
+
 module.exports = router

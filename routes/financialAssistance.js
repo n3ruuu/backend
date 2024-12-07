@@ -110,38 +110,94 @@ router.get('/social-pension/:memberId', (req, res) => {
 })
 
 router.put('/social-pension/:id', (req, res) => {
-	const { quarterData, benefitType } = req.body // Getting quarterData
-	const { id } = req.params
+	const { quarterData } = req.body; // Getting quarterData
+	const { id } = req.params;
 
 	if (!quarterData || !quarterData.length) {
-		return res.status(400).json({ message: 'Missing quarter data' })
+		return res.status(400).json({ message: 'Missing quarter data' });
 	}
 
 	// Process each quarter's data
 	quarterData.forEach((data, idx) => {
-		const { disbursement_date, claimer, relationship } = data
-		if (!disbursement_date || !claimer || !relationship) {
-			return res.status(400).json({ message: `Missing required fields for Q${idx + 1}` })
-		}
+		// Convert empty strings to NULL for the database
+		const disbursement_date = data.disbursement_date || null;
+		const claimer = data.claimer?.trim() || null;
+		const relationship = data.relationship?.trim() || null;
 
 		const query = `
             UPDATE social_pension
-            SET disbursement_date = ?, claimer = ?, relationship = ?
+            SET 
+                disbursement_date = ?, 
+                claimer = ?, 
+                relationship = ?
             WHERE member_id = ? AND quarter = ?
-        `
-		db.execute(query, [disbursement_date, claimer, relationship, id, `Q${idx + 1}`], (err, result) => {
-			if (err) {
-				console.error('Error updating record:', err)
-				return res.status(500).json({ message: 'Internal Server Error' })
-			}
+        `;
 
-			if (result.affectedRows === 0) {
-				return res.status(404).json({ message: 'Record not found' })
-			}
-		})
-	})
+		db.execute(
+			query,
+			[disbursement_date, claimer, relationship, id, `Q${idx + 1}`],
+			(err, result) => {
+				if (err) {
+					console.error('Error updating record:', err);
+					return res.status(500).json({ message: 'Internal Server Error' });
+				}
 
-	res.status(200).json({ message: 'Record updated successfully' })
-})
+				if (result.affectedRows === 0) {
+					return res.status(404).json({ message: 'Record not found' });
+				}
+			}
+		);
+	});
+
+	res.status(200).json({ message: 'Record updated successfully' });
+});
+
+router.post("/social-pension", (req, res) => {
+    const { quarterData } = req.body;
+
+    // Check if quarterData exists and has entries
+    if (!quarterData || !quarterData.length) {
+        return res.status(400).json({ message: "Missing quarter data" });
+    }
+
+    // SQL query for inserting data into social_pension
+    const query = `
+        INSERT INTO social_pension (quarter, status, disbursement_date, claimer, relationship, proof)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    // Process each quarter's data
+    quarterData.forEach((data, idx) => {
+        const quarter = data.quarter || null;
+        const disbursement_date = data.disbursement_date || null;
+        const claimer = data.claimer || null;
+        const relationship = data.relationship || null;
+        const proof = data.proof || null;
+
+        // Execute SQL query to insert data
+        db.execute(
+            query,
+            [
+                quarter,
+                "Unclaimed", // Default status is 'Unclaimed'
+                disbursement_date,
+                claimer,
+                relationship,
+                proof,
+            ],
+            (err) => {
+                if (err) {
+                    console.error("Error inserting record:", err);
+                    return res.status(500).json({ message: "Internal Server Error" });
+                }
+            }
+        );
+    });
+
+    // Return success response
+    res.status(201).json({ message: "Records inserted successfully" });
+});
+
+
 
 module.exports = router

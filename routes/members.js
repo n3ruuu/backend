@@ -201,53 +201,6 @@ router.put('/financial-assistance/:id', (req, res) => {
 	})
 })
 
-// PUT route to update an existing social pension record
-router.put('/social-pension/:id', (req, res) => {
-	const memberId = req.params.id
-	const { benefitType, claimDateQ1, claimerQ1, relationshipQ1, claimDateQ2, claimerQ2, relationshipQ2, claimDateQ3, claimerQ3, relationshipQ3, claimDateQ4, claimerQ4, relationshipQ4 } = req.body
-
-	// SQL query to update data
-	const query = `
-        UPDATE members SET
-            benefitType = ?,
-            claimDateQ1 = ?, claimerQ1 = ?, relationshipQ1 = ?,
-            claimDateQ2 = ?, claimerQ2 = ?, relationshipQ2 = ?,
-            claimDateQ3 = ?, claimerQ3 = ?, relationshipQ3 = ?,
-            claimDateQ4 = ?, claimerQ4 = ?, relationshipQ4 = ?
-        WHERE id = ?
-    `
-
-	// Values to update
-	const values = [
-		benefitType,
-		claimDateQ1,
-		claimerQ1,
-		relationshipQ1,
-		claimDateQ2,
-		claimerQ2,
-		relationshipQ2,
-		claimDateQ3,
-		claimerQ3,
-		relationshipQ3,
-		claimDateQ4,
-		claimerQ4,
-		relationshipQ4,
-		memberId, // ID for the WHERE clause
-	]
-
-	// Execute the query
-	db.query(query, values, (err, result) => {
-		if (err) {
-			return res.status(500).json({ error: err.message })
-		}
-
-		if (result.affectedRows === 0) {
-			return res.status(404).json({ message: 'Record not found.' })
-		}
-
-		return res.status(200).json({ message: 'Social pension record updated successfully.' })
-	})
-})
 
 // PUT route to update a specific member
 router.put('/health-records/:id', (req, res) => {
@@ -284,4 +237,57 @@ router.put('/health-records/:id', (req, res) => {
 	})
 })
 
-module.exports = router
+
+router.post('/', (req, res) => {
+    const { 
+        firstName, lastName, middleName, extension, dob, sex, civilStatus, 
+        address, contactNumber, controlNo, purchaseBookletNo, medicineBookletNo, 
+        dateIssued, medicalConditions, medications, guardianFirstName, 
+        guardianMiddleName, guardianLastName, guardianEmail, guardianContact, guardianRelationship 
+    } = req.body;
+
+    // Ensure all required fields are provided
+    if (!firstName || !lastName || !dob) {
+        return res.status(400).json({ error: 'First name, last name, and date of birth are required.' });
+    }
+
+    // Prepare values for the insert query
+    const values = [
+        firstName || '', lastName || '', middleName || '', extension || '', dob || '', sex || '', civilStatus || '',
+        address || '', contactNumber || '', controlNo || '', purchaseBookletNo || '', medicineBookletNo || '', dateIssued || '',
+        medicalConditions ? medicalConditions.join(',') : '', // Store as a comma-separated string
+        medications ? medications.join(',') : '', // Store as a comma-separated string
+        guardianFirstName || '', guardianMiddleName || '', guardianLastName || '', guardianEmail || '', guardianContact || '', guardianRelationship || ''
+    ];
+
+    // Log the values to debug
+    console.log('Inserting member with the following values:');
+    console.log(values);
+    console.log('Number of values:', values.length);
+
+    // Combine the data into a single query for insertion
+    const query = `
+        INSERT INTO members (
+            firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, 
+            controlNo, purchaseBookletNo, medicineBookletNo, dateIssued, medicalConditions, medications, 
+            guardianFirstName, guardianMiddleName, guardianLastName, guardianEmail, guardianContact, guardianRelationship
+        ) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    // Execute the query to insert the new member and health record
+    db.query(query, values, (err, result) => {
+        if (err) {
+            console.error('Error executing query:', err.message);
+            return res.status(500).json({ error: 'Error saving data: ' + err.message });
+        }
+
+        // Successfully created the member and health record
+        res.status(201).json({ message: 'Member and health record added successfully.', memberId: result.insertId });
+    });
+});
+
+module.exports = router;
+
+
+

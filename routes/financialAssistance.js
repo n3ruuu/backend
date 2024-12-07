@@ -110,19 +110,19 @@ router.get('/social-pension/:memberId', (req, res) => {
 })
 
 router.put('/social-pension/:id', (req, res) => {
-	const { quarterData } = req.body; // Getting quarterData
-	const { id } = req.params;
+	const { quarterData } = req.body // Getting quarterData
+	const { id } = req.params
 
 	if (!quarterData || !quarterData.length) {
-		return res.status(400).json({ message: 'Missing quarter data' });
+		return res.status(400).json({ message: 'Missing quarter data' })
 	}
 
 	// Process each quarter's data
 	quarterData.forEach((data, idx) => {
 		// Convert empty strings to NULL for the database
-		const disbursement_date = data.disbursement_date || null;
-		const claimer = data.claimer?.trim() || null;
-		const relationship = data.relationship?.trim() || null;
+		const disbursement_date = data.disbursement_date || null
+		const claimer = data.claimer?.trim() || null
+		const relationship = data.relationship?.trim() || null
 
 		const query = `
             UPDATE social_pension
@@ -131,77 +131,77 @@ router.put('/social-pension/:id', (req, res) => {
                 claimer = ?, 
                 relationship = ?
             WHERE member_id = ? AND quarter = ?
-        `;
+        `
+
+		db.execute(query, [disbursement_date, claimer, relationship, id, `Q${idx + 1}`], (err, result) => {
+			if (err) {
+				console.error('Error updating record:', err)
+				return res.status(500).json({ message: 'Internal Server Error' })
+			}
+
+			if (result.affectedRows === 0) {
+				return res.status(404).json({ message: 'Record not found' })
+			}
+		})
+	})
+
+	res.status(200).json({ message: 'Record updated successfully' })
+})
+
+router.post('/social-pension', (req, res) => {
+	const { member_id, quarterData } = req.body
+
+	// Validate request body
+	if (!member_id) {
+		return res.status(400).json({ message: 'Missing member ID' })
+	}
+	if (!quarterData || !quarterData.length) {
+		return res.status(400).json({ message: 'Missing quarter data' })
+	}
+
+	// SQL query for inserting social pension data
+	const query = `
+        INSERT INTO social_pension (member_id, quarter, status, disbursement_date, claimer, relationship, proof)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `
+
+	// Process and insert each quarter's data
+	let errorOccurred = false
+
+	quarterData.forEach((data) => {
+		const quarter = data.quarter || null
+		const disbursement_date = data.disbursement_date || null
+		const claimer = data.claimer || null
+		const relationship = data.relationship || null
+		const proof = data.proof || null
 
 		db.execute(
 			query,
-			[disbursement_date, claimer, relationship, id, `Q${idx + 1}`],
-			(err, result) => {
+			[
+				member_id,
+				quarter,
+				'Unclaimed', // Default status
+				disbursement_date,
+				claimer,
+				relationship,
+				proof,
+			],
+			(err) => {
 				if (err) {
-					console.error('Error updating record:', err);
-					return res.status(500).json({ message: 'Internal Server Error' });
-				}
-
-				if (result.affectedRows === 0) {
-					return res.status(404).json({ message: 'Record not found' });
+					console.error('Error inserting record:', err)
+					errorOccurred = true
 				}
 			}
-		);
-	});
+		)
+	})
 
-	res.status(200).json({ message: 'Record updated successfully' });
-});
+	// Check if there was an error during processing
+	if (errorOccurred) {
+		return res.status(500).json({ message: 'Failed to insert some or all records' })
+	}
 
-router.post("/social-pension", (req, res) => {
-    const { controlNo, quarterData } = req.body;
-
-    // Validate request body
-    if (!controlNo) {
-        return res.status(400).json({ message: "Missing control number" });
-    }
-    if (!quarterData || !quarterData.length) {
-        return res.status(400).json({ message: "Missing quarter data" });
-    }
-
-    // SQL query for inserting social pension data
-    const query = `
-        INSERT INTO social_pension (control_no, quarter, status, disbursement_date, claimer, relationship, proof)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    // Process and insert each quarter's data
-    quarterData.forEach((data) => {
-        const quarter = data.quarter || null;
-        const disbursement_date = data.disbursement_date || null;
-        const claimer = data.claimer || null;
-        const relationship = data.relationship || null;
-        const proof = data.proof || null;
-
-        db.execute(
-            query,
-            [
-                controlNo,
-                quarter,
-                "Unclaimed", // Default status
-                disbursement_date,
-                claimer,
-                relationship,
-                proof,
-            ],
-            (err) => {
-                if (err) {
-                    console.error("Error inserting record:", err);
-                    return res.status(500).json({ message: "Failed to insert records" });
-                }
-            }
-        );
-    });
-
-    // Respond after processing
-    res.status(201).json({ message: "Social pension records added successfully" });
-});
-
-
-
+	// Respond after processing
+	res.status(201).json({ message: 'Social pension records added successfully' })
+})
 
 module.exports = router

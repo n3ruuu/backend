@@ -153,33 +153,36 @@ router.put('/social-pension/:id', (req, res) => {
 });
 
 router.post("/social-pension", (req, res) => {
-    const { quarterData } = req.body;
+    const { controlNo, quarterData } = req.body;
 
-    // Check if quarterData exists and has entries
+    // Validate request body
+    if (!controlNo) {
+        return res.status(400).json({ message: "Missing control number" });
+    }
     if (!quarterData || !quarterData.length) {
         return res.status(400).json({ message: "Missing quarter data" });
     }
 
-    // SQL query for inserting data into social_pension
+    // SQL query for inserting social pension data
     const query = `
-        INSERT INTO social_pension (quarter, status, disbursement_date, claimer, relationship, proof)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO social_pension (control_no, quarter, status, disbursement_date, claimer, relationship, proof)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
-    // Process each quarter's data
-    quarterData.forEach((data, idx) => {
+    // Process and insert each quarter's data
+    quarterData.forEach((data) => {
         const quarter = data.quarter || null;
         const disbursement_date = data.disbursement_date || null;
         const claimer = data.claimer || null;
         const relationship = data.relationship || null;
         const proof = data.proof || null;
 
-        // Execute SQL query to insert data
         db.execute(
             query,
             [
+                controlNo,
                 quarter,
-                "Unclaimed", // Default status is 'Unclaimed'
+                "Unclaimed", // Default status
                 disbursement_date,
                 claimer,
                 relationship,
@@ -188,15 +191,16 @@ router.post("/social-pension", (req, res) => {
             (err) => {
                 if (err) {
                     console.error("Error inserting record:", err);
-                    return res.status(500).json({ message: "Internal Server Error" });
+                    return res.status(500).json({ message: "Failed to insert records" });
                 }
             }
         );
     });
 
-    // Return success response
-    res.status(201).json({ message: "Records inserted successfully" });
+    // Respond after processing
+    res.status(201).json({ message: "Social pension records added successfully" });
 });
+
 
 
 

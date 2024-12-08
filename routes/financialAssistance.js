@@ -159,49 +159,86 @@ router.post('/social-pension', (req, res) => {
 		return res.status(400).json({ message: 'Missing quarter data' })
 	}
 
-	// SQL query for inserting social pension data
-	const query = `
-        INSERT INTO social_pension (member_id, quarter, status, disbursement_date, claimer, relationship, proof)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+	// SQL query to fetch controlNo (aliased as control_no) and full_name based on member_id
+	const memberQuery = `
+        SELECT controlNo AS control_no, CONCAT(firstName, ' ', lastName) AS full_name
+        FROM members
+        WHERE id = ?
     `
 
-	// Process and insert each quarter's data
-	let errorOccurred = false
+	db.execute(memberQuery, [member_id], (err, results) => {
+		if (err) {
+			console.error('Error fetching member data:', err)
+			return res.status(500).json({ message: 'Failed to fetch member data' })
+		}
 
-	quarterData.forEach((data) => {
-		const quarter = data.quarter || null
-		const disbursement_date = data.disbursement_date || null
-		const claimer = data.claimer || null
-		const relationship = data.relationship || null
-		const proof = data.proof || null
+		if (results.length === 0) {
+			return res.status(404).json({ message: 'Member not found' })
+		}
 
-		db.execute(
-			query,
-			[
-				member_id,
-				quarter,
-				'Unclaimed', // Default status
-				disbursement_date,
-				claimer,
-				relationship,
-				proof,
-			],
-			(err) => {
-				if (err) {
-					console.error('Error inserting record:', err)
-					errorOccurred = true
+		const { control_no, full_name } = results[0]
+
+		// SQL query for inserting social pension data
+		const query = `
+            INSERT INTO social_pension (control_no, member_id, full_name, quarter, status, disbursement_date, claimer, relationship, proof)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+
+		// Process and insert each quarter's data
+		let errorOccurred = false
+
+		quarterData.forEach((data) => {
+			const quarter = data.quarter || null
+			const disbursement_date = data.disbursement_date || null
+			const claimer = data.claimer || null
+			const relationship = data.relationship || null
+			const proof = data.proof || null
+
+			db.execute(
+				query,
+				[
+					control_no, // Use control_no from the members table
+					member_id,
+					full_name,
+					quarter,
+					'Unclaimed', // Default status
+					disbursement_date,
+					claimer,
+					relationship,
+					proof,
+				],
+				(err) => {
+					if (err) {
+						console.error('Error inserting record:', err)
+						errorOccurred = true
+					}
 				}
-			}
-		)
+			)
+		})
+
+		// Check if there was an error during processing
+		if (errorOccurred) {
+			return res.status(500).json({ message: 'Failed to insert some or all records' })
+		}
+
+		// Respond after processing
+		res.status(201).json({ message: 'Social pension records added successfully' })
 	})
+})
 
-	// Check if there was an error during processing
-	if (errorOccurred) {
-		return res.status(500).json({ message: 'Failed to insert some or all records' })
-	}
+// GET endpoint for social_pension data
+router.get('/social-pension', (req, res) => {
+	const query = 'SELECT * FROM social_pension' // Modify the query as per your table structure
 
-	// Respond after processing
-	res.status(201).json({ message: 'Social pension records added successfully' })
+	db.query(query, (err, results) => {
+		if (err) {
+			console.error('Error fetching social pension data:', err)
+			return res.status(500).json({ error: 'Failed to fetch data' })
+		}
+
+		// Send the fetched data as JSON response
+		res.status(200).json(results)
+	})
 })
 
 module.exports = router

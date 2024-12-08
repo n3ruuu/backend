@@ -25,7 +25,10 @@ router.post('/send-verification-code', (req, res) => {
 
 	// Insert code into the database
 	db.query('INSERT INTO verification_codes (email, code, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE code = ?, expires_at = ?', [email, code, expiresAt, code, expiresAt], (err) => {
-		if (err) return res.status(500).send('Error saving verification code.')
+		if (err) {
+			console.error('Database error:', err) // Log the database error
+			return res.status(500).send('Error saving verification code.')
+		}
 
 		// Send email
 		transporter.sendMail(
@@ -36,7 +39,10 @@ router.post('/send-verification-code', (req, res) => {
 				text: `Your verification code is ${code}. It will expire in 15 minutes.`,
 			},
 			(mailErr) => {
-				if (mailErr) return res.status(500).send('Error sending email.')
+				if (mailErr) {
+					console.error('Email sending error:', mailErr) // Log the email sending error
+					return res.status(500).send('Error sending email.')
+				}
 				res.status(200).send('Verification code sent.')
 			}
 		)
@@ -55,21 +61,30 @@ router.post('/verify-code', (req, res) => {
 	})
 })
 
-// Endpoint to Reset Password
-router.post('/reset-password', async (req, res) => {
+// Endpoint to reset password
+router.post('/reset-password', (req, res) => {
 	const { email, newPassword } = req.body
 
-	try {
-		const hashedPassword = await bcrypt.hash(newPassword, 10) // Hash the new password
+	// Check if the email exists in the database
+	db.query('SELECT * FROM admins WHERE email = ?', [email], (err, results) => {
+		if (err) {
+			console.error('Database error:', err)
+			return res.status(500).send('Error retrieving user data.')
+		}
 
-		db.query('UPDATE admins SET password = ? WHERE email = ?', [hashedPassword, email], (err, results) => {
-			if (err) return res.status(500).send('Error resetting password.')
-			if (results.affectedRows === 0) return res.status(404).send('Email not found.')
+		if (results.length === 0) {
+			return res.status(404).send('User not found.')
+		}
+
+		// Update the password (no hashing)
+		db.query('UPDATE admins SET password = ? WHERE email = ?', [newPassword, email], (updateErr) => {
+			if (updateErr) {
+				console.error('Error updating password:', updateErr)
+				return res.status(500).send('Failed to reset password.')
+			}
 			res.status(200).send('Password reset successfully.')
 		})
-	} catch (error) {
-		res.status(500).send('Error hashing password.')
-	}
+	})
 })
 
 module.exports = router

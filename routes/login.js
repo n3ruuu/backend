@@ -6,7 +6,12 @@ require('dotenv').config()
 
 // Endpoint for login authentication (using username or email)
 router.post('/', (req, res) => {
-	const { identifier, password } = req.body // 'identifier' can be either username or email
+	const { identifier, password } = req.body
+
+	// Validate input fields
+	if (!identifier || !password) {
+		return res.status(400).json({ message: 'Username/email and password are required.' })
+	}
 
 	const query = 'SELECT * FROM admins WHERE username = ? OR email = ?'
 	db.query(query, [identifier, identifier], (err, results) => {
@@ -19,7 +24,8 @@ router.post('/', (req, res) => {
 		}
 
 		const user = results[0]
-		// Optionally compare hashed passwords if using bcrypt
+
+		// For plain password comparison (not recommended for production)
 		if (password === user.password) {
 			res.status(200).json({
 				message: 'Login successful',

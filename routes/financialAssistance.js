@@ -19,6 +19,33 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage })
 
+router.put('/undo/:id', (req, res) => {
+	const { id } = req.params
+
+	// SQL queries for updating both tables
+	const queryMembers = 'UPDATE members SET status = "Active" WHERE id = ?'
+	const queryPension = 'UPDATE social_pension SET memberStatus = "Active" WHERE id = ?'
+
+	// Update the members table
+	db.query(queryMembers, [id], (err, result) => {
+		if (err) {
+			console.error('Error updating members:', err)
+			return res.status(500).json({ error: 'Failed to update member status' })
+		}
+
+		// If the update to the members table was successful, update the social_pension table
+		db.query(queryPension, [id], (err, result) => {
+			if (err) {
+				console.error('Error updating social_pension:', err)
+				return res.status(500).json({ error: 'Failed to update social_pension status' })
+			}
+
+			// Successfully updated both tables
+			return res.status(200).json({ message: 'Member status updated to Active and social_pension status updated' })
+		})
+	})
+})
+
 router.get('/', (req, res) => {
 	const query = 'SELECT * FROM social_pension'
 	db.query(query, (err, results) => {

@@ -18,6 +18,32 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage })
 
+router.put('/undo/:id', (req, res) => {
+	const { id } = req.params
+
+	// Begin the transaction (optional, but useful for ensuring atomicity)
+	const queryMembers = 'UPDATE members SET status = "Active" WHERE id = ?'
+	const queryPension = 'UPDATE social_pension SET memberStatus = "Active" WHERE id = ?'
+
+	// Update the members table
+	db.query(queryMembers, [id], (err, result) => {
+		if (err) {
+			console.error('Error updating members:', err)
+			return res.status(500).json({ error: 'Failed to update member status' })
+		}
+
+		// Update the social_pension table after the members table
+		db.query(queryPension, [id], (err, result) => {
+			if (err) {
+				console.error('Error updating social_pension:', err)
+				return res.status(500).json({ error: 'Failed to update social_pension status' })
+			}
+
+			return res.status(200).json({ message: 'Member status updated to Active and social_pension status updated' })
+		})
+	})
+})
+
 // router.js or the relevant route file
 router.post('/upload-proof', upload.single('file'), (req, res) => {
 	const { memberId } = req.body
@@ -101,6 +127,63 @@ router.get('/', (req, res) => {
 	})
 })
 
+// PUT route to update member status
+router.put('/archive/:id', (req, res) => {
+	const { id } = req.params // Get member ID from the URL parameter
+	const { reason } = req.body // Get the reason from the request body
+
+	// Ensure reason is one of the valid options
+	const validReasons = ['Deceased', 'Relocated', 'Inactive']
+
+	if (!validReasons.includes(reason)) {
+		return res.status(400).json({ error: 'Invalid reason for archiving' })
+	}
+
+	// Start a transaction to ensure both updates happen atomically
+	db.beginTransaction((err) => {
+		if (err) {
+			return res.status(500).json({ error: 'Error starting transaction' })
+		}
+
+		// Update the status in the members table
+		const updateMemberQuery = 'UPDATE members SET status = ? WHERE id = ?'
+		db.query(updateMemberQuery, [reason, id], (err, result) => {
+			if (err) {
+				return db.rollback(() => {
+					res.status(500).json({ error: 'Error updating member status' })
+				})
+			}
+
+			if (result.affectedRows === 0) {
+				return db.rollback(() => {
+					res.status(404).json({ error: 'Member not found' })
+				})
+			}
+
+			// Now update the memberStatus in the social_pension table
+			const updatePensionQuery = 'UPDATE social_pension SET memberStatus = ? WHERE member_id = ?'
+			db.query(updatePensionQuery, [reason, id], (err, result) => {
+				if (err) {
+					return db.rollback(() => {
+						res.status(500).json({ error: 'Error updating member status in social_pension' })
+					})
+				}
+
+				// Commit the transaction if both updates were successful
+				db.commit((err) => {
+					if (err) {
+						return db.rollback(() => {
+							res.status(500).json({ error: 'Error committing transaction' })
+						})
+					}
+
+					res.status(200).json({ message: 'Member archived successfully' })
+				})
+			})
+		})
+	})
+})
+
 // PUT route to update a specific member
 router.put('/members-list/:id', (req, res) => {
 	const memberId = req.params.id // Extract the member ID from the URL
@@ -127,81 +210,6 @@ router.put('/members-list/:id', (req, res) => {
 			return res.status(200).json({ message: 'Member updated successfully.' })
 		} else {
 			return res.status(404).json({ error: 'Member not found.' })
-		}
-	})
-})
-
-// POST route to create a new financial assistance record
-router.post('/financial-assistance', (req, res) => {
-	const { benefitType, claimDate, programName, claimer, claimerRelationship } = req.body
-
-	// Perform the insert query (example for MySQL)
-	const query = `
-        INSERT INTO members (benefitType, claimDate, programName, claimer, claimerRelationship)
-        VALUES (?, ?, ?, ?, ?)
-    `
-	const values = [benefitType, claimDate, programName, claimer, claimerRelationship]
-
-	db.query(query, values, (err, result) => {
-		if (err) {
-			return res.status(500).json({ error: err.message })
-		}
-		return res.status(201).json({ message: 'Financial assistance record created successfully.' })
-	})
-})
-
-// POST route to create a new social pension record
-router.post('/social-pension', (req, res) => {
-	const { benefitType, claimDateQ1, claimerQ1, relationshipQ1, claimDateQ2, claimerQ2, relationshipQ2, claimDateQ3, claimerQ3, relationshipQ3, claimDateQ4, claimerQ4, relationshipQ4 } = req.body
-
-	// SQL query to insert data
-	const query = `
-        INSERT INTO members (
-            benefitType,
-            claimDateQ1, claimerQ1, relationshipQ1,
-            claimDateQ2, claimerQ2, relationshipQ2,
-            claimDateQ3, claimerQ3, relationshipQ3,
-            claimDateQ4, claimerQ4, relationshipQ4
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-
-	// Values to insert
-	const values = [benefitType, claimDateQ1, claimerQ1, relationshipQ1, claimDateQ2, claimerQ2, relationshipQ2, claimDateQ3, claimerQ3, relationshipQ3, claimDateQ4, claimerQ4, relationshipQ4]
-
-	// Execute the query
-	db.query(query, values, (err, result) => {
-		if (err) {
-			return res.status(500).json({ error: err.message })
-		}
-		return res.status(201).json({ message: 'Social pension record created successfully.' })
-	})
-})
-
-// PUT route to update a specific financial assistance record
-router.put('/financial-assistance/:id', (req, res) => {
-	const memberId = req.params.id // Extract the financial assistance record ID from the URL
-	const { benefitType, claimDate, programName, claimer, claimerRelationship } = req.body
-
-	// Perform the update query (example for MySQL)
-	const query = `
-        UPDATE members SET
-        benefitType = ?, 
-        claimDate = ?, 
-        programName = ?, 
-        claimer = ?, 
-        claimerRelationship = ? 
-        WHERE id = ?
-    `
-	const values = [benefitType, claimDate, programName, claimer, claimerRelationship, memberId]
-
-	db.query(query, values, (err, result) => {
-		if (err) {
-			return res.status(500).json({ error: err.message })
-		}
-		if (result.affectedRows > 0) {
-			return res.status(200).json({ message: 'Financial assistance record updated successfully.' })
-		} else {
-			return res.status(404).json({ error: 'Record not found.' })
 		}
 	})
 })

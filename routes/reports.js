@@ -57,4 +57,50 @@ router.get('/get-news', (req, res) => {
 	})
 })
 
+// Endpoint to update the report status to "Archived"
+router.put('/archive-report/:id', (req, res) => {
+	const reportId = req.params.id
+
+	// Update the status of the report to 'Archived'
+	const query = 'UPDATE reports SET status = ? WHERE id = ?'
+	db.query(query, ['Archived', reportId], (err, result) => {
+		if (err) {
+			console.error('Error updating report status:', err)
+			return res.status(500).send('Error updating report status')
+		}
+
+		// Respond with a success message
+		res.status(200).send({ message: 'Report archived successfully' })
+	})
+})
+
+// API endpoint to set status to 'Active' for a report
+router.put('/undo/:id', (req, res) => {
+	const { id } = req.params // Extract report ID from the request parameters
+	const { status } = req.body // Extract status from the request body
+
+	// Validate the provided status
+	if (!status || status !== 'Active') {
+		res.status(400).send("Invalid status. Only 'Active' is allowed.")
+		return
+	}
+
+	// Update the report's status in the database
+	const query = 'UPDATE reports SET status = ? WHERE id = ?'
+	db.query(query, [status, id], (err, result) => {
+		if (err) {
+			console.error('Error updating report status:', err)
+			res.status(500).send('Server error')
+			return
+		}
+
+		if (result.affectedRows === 0) {
+			res.status(404).send('Report not found')
+			return
+		}
+
+		res.status(200).send('Report status updated to Active successfully.')
+	})
+})
+
 module.exports = router

@@ -13,6 +13,7 @@ const applicationRouter = require('./routes/application')
 const smsRouter = require('./routes/sms') // Import the SMS router
 const verificationRouter = require('./routes/verification') // Import the SMS router
 const reportsRouter = require('./routes/reports') // Import the SMS router
+const cmsRouter = require('./routes/cms') // Import the SMS router
 require('dotenv').config()
 
 const app = express()
@@ -35,6 +36,7 @@ app.use('/application', applicationRouter)
 app.use('/sms', smsRouter)
 app.use('/verification', verificationRouter)
 app.use('/reports', reportsRouter)
+app.use('/cms', cmsRouter)
 
 // Start the server
 app.listen(port, () => {

@@ -7,17 +7,17 @@ const path = require('path')
 const db = require('../db')
 require('dotenv').config()
 
-// Set up multer for image uploads
-const storage = multer.diskStorage({
-	destination: (req, file, cb) => {
-		cb(null, 'uploads/') // Folder to store images
-	},
-	filename: (req, file, cb) => {
-		cb(null, Date.now() + path.extname(file.originalname)) // Unique filename with timestamp
-	},
+const upload = multer({
+	storage: multer.diskStorage({
+		destination: (req, file, cb) => {
+			cb(null, 'uploads/')
+		},
+		filename: (req, file, cb) => {
+			const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
+			cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+		},
+	}),
 })
-
-const upload = multer({ storage: storage })
 
 // Utility function to handle date format (in case a date isn't passed)
 function formatDate(date) {

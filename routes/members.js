@@ -272,6 +272,7 @@ router.post('/', (req, res) => {
 		guardianEmail,
 		guardianContact,
 		guardianRelationship,
+		status,
 	} = req.body
 
 	// Ensure all required fields are provided
@@ -302,6 +303,7 @@ router.post('/', (req, res) => {
 		guardianEmail || '',
 		guardianContact || '',
 		guardianRelationship || '',
+		status || 'Active',
 	]
 
 	// Log the values to debug
@@ -314,9 +316,9 @@ router.post('/', (req, res) => {
         INSERT INTO members (
             firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, 
             controlNo, purchaseBookletNo, medicineBookletNo, dateIssued, medicalConditions, medications, 
-            guardianFirstName, guardianMiddleName, guardianLastName, guardianEmail, guardianContact, guardianRelationship
+            guardianFirstName, guardianMiddleName, guardianLastName, guardianEmail, guardianContact, guardianRelationship, status
         ) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
 
 	// Execute the query to insert the new member and health record
@@ -328,6 +330,125 @@ router.post('/', (req, res) => {
 		const memberId = result.insertId // Retrieve the new member ID
 		// Successfully created the member and health record
 		res.status(201).json({ message: 'Member and health record added successfully.', memberId: result.insertId })
+	})
+})
+
+router.post('/import-csv', (req, res) => {
+	const data = req.body // Assuming the data comes in JSON format
+	console.log('CSV data being imported:', data) // Log the incoming data
+
+	const query = `
+        INSERT INTO members (
+            firstName, lastName, middleName, extension, dob, sex, civilStatus, address, 
+            contactNumber, controlNo, purchaseBookletNo, medicineBookletNo, dateIssued, 
+            medicalConditions, medications, guardianFirstName, guardianMiddleName, 
+            guardianLastName, guardianEmail, guardianContact, guardianRelationship
+        ) VALUES ?
+    `
+
+	const values = data.map((row) => [
+		row.firstName,
+		row.lastName,
+		row.middleName,
+		row.extension,
+		row.dob,
+		row.sex,
+		row.civilStatus,
+		row.address,
+		row.contactNumber,
+		row.controlNo,
+		row.purchaseBookletNo,
+		row.medicineBookletNo,
+		row.dateIssued,
+		row.medicalConditions,
+		row.medications,
+		row.guardianFirstName,
+		row.guardianMiddleName,
+		row.guardianLastName,
+		row.guardianEmail,
+		row.guardianContact,
+		row.guardianRelationship,
+	])
+
+	db.query(query, [values], (err, result) => {
+		if (err) {
+			console.error('Error inserting data:', err)
+			return res.status(500).send('Error inserting data')
+		}
+
+		// Assuming you want to return the inserted data with generated ids
+		const insertedMembers = result.insertId
+			? values.map((val, idx) => ({
+					...val, // Spread the inserted row
+					id: result.insertId + idx, // Assuming insertId returns the first inserted row id
+			  }))
+			: []
+
+		res.status(200).send({ message: 'CSV data imported successfully', members: insertedMembers })
+	})
+})
+
+router.post('/register', upload.single('form_path'), (req, res) => {
+	const formPath = req.file ? req.file.path : null // Store the file path from the uploaded file
+
+	const {
+		firstName,
+		lastName,
+		middleName,
+		extension,
+		dob,
+		sex,
+		civilStatus,
+		address,
+		contactNumber,
+		medicalConditions,
+		medications,
+		guardianFirstName,
+		guardianMiddleName,
+		guardianLastName,
+		guardianEmail,
+		guardianContact,
+		guardianRelationship,
+	} = req.body
+
+	// Add the formPath to the insert query
+	const query = `
+      INSERT INTO members (
+        firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, 
+        medicalConditions, medications, guardianFirstName, guardianMiddleName, guardianLastName, 
+        guardianEmail, guardianContact, guardianRelationship, form_path, status
+      ) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+	const values = [
+		firstName,
+		lastName,
+		middleName,
+		extension,
+		dob,
+		sex,
+		civilStatus,
+		address,
+		contactNumber,
+		medicalConditions ? medicalConditions.join(',') : '',
+		medications ? medications.join(',') : '',
+		guardianFirstName,
+		guardianMiddleName,
+		guardianLastName,
+		guardianEmail,
+		guardianContact,
+		guardianRelationship,
+		formPath, // Add the form path here
+		'Pending', // Default status
+	]
+
+	db.query(query, values, (err, result) => {
+		if (err) {
+			console.error('Error executing query:', err)
+			return res.status(500).json({ error: 'Error saving data: ' + err.message })
+		}
+		res.status(201).json({ message: 'Member added successfully' })
 	})
 })
 

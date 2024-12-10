@@ -36,9 +36,7 @@ router.post('/', upload.single('filePath'), async (req, res) => {
       `
 
 		// The result will be an array, so we access the first element which contains the affected rows
-		const [result] = await db
-			.promise()
-			.query(query, [applicantName, formType, filePath, currentDate])
+		const [result] = await db.promise().query(query, [applicantName, formType, filePath, currentDate])
 
 		// Check if the result contains the insertId
 		if (result && result.insertId) {
@@ -117,6 +115,31 @@ router.put('/update/:id', (req, res) => {
 		res.status(200).json({
 			message: `Form status updated to ${status}.`,
 		})
+	})
+})
+
+// PUT or PATCH route to update member status
+router.put('/members/:id', (req, res) => {
+	const memberId = req.params.id
+	const { status } = req.body
+
+	// Validate status value
+	if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
+		return res.status(400).send({ message: 'Invalid status value' })
+	}
+
+	// SQL query to update status
+	const query = 'UPDATE members SET status = ? WHERE id = ?'
+	db.query(query, [status, memberId], (err, result) => {
+		if (err) {
+			console.error('Error updating status:', err)
+			return res.status(500).send({ message: 'Error updating status' })
+		}
+		if (result.affectedRows > 0) {
+			res.status(200).send({ message: 'Status updated successfully' })
+		} else {
+			res.status(404).send({ message: 'Member not found' })
+		}
 	})
 })
 

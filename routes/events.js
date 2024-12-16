@@ -68,16 +68,25 @@ router.post('/send-email', upload.single('image'), (req, res) => {
 
 // Add a new event
 router.post('/', (req, res) => {
-	const { title, description, date, time, location, organizer, category, recurrence } = req.body
-	const query = 'INSERT INTO events (title, description, date, time, location, organizer, category, recurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-	db.query(query, [title, description, date, time, location, organizer, category, recurrence], (err, result) => {
-		if (err) return res.status(500).json({ error: err.message })
-		res.status(201).json({
-			id: result.insertId,
-			message: 'Event added successfully',
-		})
-	})
+    const { title, description, date, time, location, organizer, category, recurrence, endDate } = req.body
+
+    // Log the received data for debugging
+    console.log('Received data:', { title, description, date, time, location, organizer, category, recurrence, endDate })
+
+    // SQL query to insert event data
+    const query = 'INSERT INTO events (title, description, date, time, location, organizer, category, recurrence, endDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+
+    db.query(query, [title, description, date, time, location, organizer, category, recurrence, endDate || null], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message })
+        
+        // Respond with success message and event ID
+        res.status(201).json({
+            id: result.insertId,
+            message: 'Event added successfully',
+        })
+    })
 })
+
 
 // Get all events
 router.get('/', (req, res) => {
@@ -88,17 +97,20 @@ router.get('/', (req, res) => {
 	})
 })
 
-// Update an event
 router.put('/:id', (req, res) => {
-	const eventId = req.params.id
-	const { title, description, date, time, location, organizer, category, recurrence } = req.body
-	const query = 'UPDATE events SET title = ?, description = ?, date = ?, time = ?, location = ?, organizer = ?, category = ?, recurrence = ? WHERE id = ?'
-	db.query(query, [title, description, date, time, location, organizer, category, recurrence, eventId], (err, result) => {
-		if (err) return res.status(500).json({ error: err.message })
-		if (result.affectedRows === 0) return res.status(404).json({ message: 'Event not found' })
-		res.status(200).json({ message: 'Event updated successfully' })
-	})
-})
+    const eventId = req.params.id;
+    const { title, description, date, time, location, organizer, category, recurrence, endDate } = req.body;
+    
+    // Updated query to include endDate
+    const query = 'UPDATE events SET title = ?, description = ?, date = ?, time = ?, location = ?, organizer = ?, category = ?, recurrence = ?, endDate = ? WHERE id = ?';
+
+    // Executing the query with endDate parameter
+    db.query(query, [title, description, date, time, location, organizer, category, recurrence, endDate, eventId], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'Event not found' });
+        res.status(200).json({ message: 'Event updated successfully' });
+    });
+});
 
 // Archive (soft delete) or undo archive an event
 router.put('/archive/:id', (req, res) => {

@@ -67,25 +67,49 @@ router.post('/send-email', upload.single('image'), (req, res) => {
 })
 
 // Add a new event
-router.post('/', (req, res) => {
-    const { title, description, date, time, location, organizer, category, recurrence, endDate } = req.body
+router.put('/:id', (req, res) => {
+    const eventId = req.params.id;
+    const { title, description, date, time, location, organizer, category, recurrence, endDate, recurrenceDates } = req.body;
 
     // Log the received data for debugging
-    console.log('Received data:', { title, description, date, time, location, organizer, category, recurrence, endDate })
+    console.log('Received data for update:', { title, description, date, time, location, organizer, category, recurrence, endDate, recurrenceDates });
 
-    // SQL query to insert event data
-    const query = 'INSERT INTO events (title, description, date, time, location, organizer, category, recurrence, endDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    // Updated query to include endDate and recurrenceDates
+    const query = `
+        UPDATE events 
+        SET title = ?, description = ?, date = ?, time = ?, location = ?, organizer = ?, 
+            category = ?, recurrence = ?, endDate = ?, recurrenceDates = ? 
+        WHERE id = ?
+    `;
 
-    db.query(query, [title, description, date, time, location, organizer, category, recurrence, endDate || null], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message })
-        
-        // Respond with success message and event ID
-        res.status(201).json({
-            id: result.insertId,
-            message: 'Event added successfully',
-        })
-    })
-})
+    // Preparing query parameters
+    const params = [
+        title,
+        description,
+        date,
+        time,
+        location,
+        organizer,
+        category,
+        recurrence,
+        endDate || null,
+        JSON.stringify(recurrenceDates) || null,
+        eventId
+    ];
+
+    // Execute the query
+    db.query(query, params, (err, result) => {
+        if (err) {
+            console.error('Error updating event:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+        res.status(200).json({ message: 'Event updated successfully' });
+    });
+});
+
 
 
 // Get all events

@@ -136,43 +136,57 @@ router.get('/social-pension/:memberId', (req, res) => {
 	})
 })
 
-router.put('/social-pension/:id', (req, res) => {
-	const { quarterData } = req.body // Getting quarterData
-	const { id } = req.params
+router.put('/social-pension/:socialPensionId/:memberId', async (req, res) => {
+	const { socialPensionId, memberId } = req.params // Extract socialPensionId and memberId from the URL parameters
+	const { quarterData } = req.body // Getting quarterData from the body
 
 	if (!quarterData || !quarterData.length) {
 		return res.status(400).json({ message: 'Missing quarter data' })
 	}
 
-	// Process each quarter's data
-	quarterData.forEach((data, idx) => {
-		// Convert empty strings to NULL for the database
-		const disbursement_date = data.disbursement_date || null
-		const claimer = data.claimer?.trim() || null
-		const relationship = data.relationship?.trim() || null
+	try {
+		// Use a Promise to handle multiple queries
+		const updatePromises = quarterData.map((data, idx) => {
+			// Convert empty strings to NULL for the database
+			const disbursement_date = data.disbursement_date || null
+			const claimer = data.claimer?.trim() || null
+			const relationship = data.relationship?.trim() || null
 
-		const query = `
-            UPDATE social_pension
-            SET 
-                disbursement_date = ?, 
-                claimer = ?, 
-                relationship = ?
-            WHERE member_id = ? AND quarter = ?
-        `
+			const query = `
+                UPDATE social_pension
+                SET 
+                    disbursement_date = ?, 
+                    claimer = ?, 
+                    relationship = ?
+                WHERE social_pension_id = ? AND member_id = ? AND quarter = ?
+            `
 
-		db.execute(query, [disbursement_date, claimer, relationship, id, `Q${idx + 1}`], (err, result) => {
-			if (err) {
-				console.error('Error updating record:', err)
-				return res.status(500).json({ message: 'Internal Server Error' })
-			}
+			// Return the promise for the db query
+			return new Promise((resolve, reject) => {
+				db.execute(query, [disbursement_date, claimer, relationship, socialPensionId, memberId, `Q${idx + 1}`], (err, result) => {
+					if (err) {
+						return reject('Error updating record')
+					}
 
-			if (result.affectedRows === 0) {
-				return res.status(404).json({ message: 'Record not found' })
-			}
+					if (result.affectedRows === 0) {
+						return reject('Record not found')
+					}
+
+					resolve(result)
+				})
+			})
 		})
-	})
 
-	res.status(200).json({ message: 'Record updated successfully' })
+		// Wait for all update queries to finish
+		await Promise.all(updatePromises)
+
+		// If all updates are successful, send a success response
+		res.status(200).json({ message: 'Record updated successfully' })
+	} catch (error) {
+		// Handle any errors in the promise chain
+		console.error(error)
+		res.status(500).json({ message: 'Internal Server Error' })
+	}
 })
 
 router.post('/social-pension', (req, res) => {
@@ -205,51 +219,70 @@ router.post('/social-pension', (req, res) => {
 
 		const { control_no, full_name } = results[0]
 
-		// SQL query for inserting social pension data
-		const query = `
-            INSERT INTO social_pension (control_no, member_id, full_name, quarter, status, disbursement_date, claimer, relationship, proof)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		// SQL query to fetch the last social_pension_id for the member
+		const lastSocialPensionIdQuery = `
+            SELECT MAX(social_pension_id) AS last_id
+            FROM social_pension
+            WHERE member_id = ?
         `
 
-		// Process and insert each quarter's data
-		let errorOccurred = false
+		db.execute(lastSocialPensionIdQuery, [member_id], (err, lastIdResults) => {
+			if (err) {
+				console.error('Error fetching last social_pension_id:', err)
+				return res.status(500).json({ message: 'Failed to fetch last social pension ID' })
+			}
 
-		quarterData.forEach((data) => {
-			const quarter = data.quarter || null
-			const disbursement_date = data.disbursement_date || null
-			const claimer = data.claimer || null
-			const relationship = data.relationship || null
-			const proof = data.proof || null
+			// Increment the last social_pension_id
+			const lastSocialPensionId = lastIdResults[0]?.last_id || 0
+			const newSocialPensionId = lastSocialPensionId + 1
 
-			db.execute(
-				query,
-				[
-					control_no, // Use control_no from the members table
-					member_id,
-					full_name,
-					quarter,
-					'Unclaimed', // Default status
-					disbursement_date,
-					claimer,
-					relationship,
-					proof,
-				],
-				(err) => {
-					if (err) {
-						console.error('Error inserting record:', err)
-						errorOccurred = true
+			// SQL query for inserting social pension data
+			const query = `
+                INSERT INTO social_pension (control_no, member_id, full_name, social_pension_id, quarter, status, disbursement_date, claimer, relationship, proof)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `
+
+			// Process and insert each quarter's data
+			let errorOccurred = false
+
+			quarterData.forEach((data) => {
+				const quarter = data.quarter || null
+				const disbursement_date = data.disbursement_date || null
+				const claimer = data.claimer || null
+				const relationship = data.relationship || null
+				const proof = data.proof || null
+
+				db.execute(
+					query,
+					[
+						control_no, // Use control_no from the members table
+						member_id,
+						full_name,
+						newSocialPensionId, // Use the new incremented social_pension_id
+						quarter,
+						'Unclaimed', // Default status
+						disbursement_date,
+						claimer,
+						relationship,
+						proof,
+					],
+					(err) => {
+						if (err) {
+							console.error('Error inserting record:', err)
+							errorOccurred = true
+						}
 					}
-				}
-			)
+				)
+			})
+
+			// Check if there was an error during processing
+			if (errorOccurred) {
+				return res.status(500).json({ message: 'Failed to insert some or all records' })
+			}
+
+			// Respond after processing
+			res.status(201).json({ message: 'Social pension records added successfully' })
 		})
-
-		// Check if there was an error during processing
-		if (errorOccurred) {
-			return res.status(500).json({ message: 'Failed to insert some or all records' })
-		}
-
-		// Respond after processing
-		res.status(201).json({ message: 'Social pension records added successfully' })
 	})
 })
 

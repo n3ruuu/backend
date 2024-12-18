@@ -401,8 +401,6 @@ router.post('/register', upload.single('form_path'), (req, res) => {
 		civilStatus,
 		address,
 		contactNumber,
-		medicalConditions,
-		medications,
 		guardianFirstName,
 		guardianMiddleName,
 		guardianLastName,
@@ -414,11 +412,10 @@ router.post('/register', upload.single('form_path'), (req, res) => {
 	// Add the formPath to the insert query
 	const query = `
       INSERT INTO members (
-        firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, 
-        medicalConditions, medications, guardianFirstName, guardianMiddleName, guardianLastName, 
+        firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, guardianFirstName, guardianMiddleName, guardianLastName, 
         guardianEmail, guardianContact, guardianRelationship, form_path, status
       ) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
 
 	const values = [
@@ -431,8 +428,6 @@ router.post('/register', upload.single('form_path'), (req, res) => {
 		civilStatus,
 		address,
 		contactNumber,
-		medicalConditions ? medicalConditions.join(',') : '',
-		medications ? medications.join(',') : '',
 		guardianFirstName,
 		guardianMiddleName,
 		guardianLastName,

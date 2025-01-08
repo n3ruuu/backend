@@ -66,6 +66,44 @@ router.post('/send-email', upload.single('image'), (req, res) => {
 	})
 })
 
+
+// Add a new event
+router.post('/', (req, res) => {
+    const { title, description, date, time, location, organizer, category, recurrence, endDate, recurrenceDates } = req.body;
+
+    // Log the received data for debugging
+    console.log('Received data for new event:', { title, description, date, time, location, organizer, category, recurrence, endDate, recurrenceDates });
+
+    // Insert query to add a new event
+    const query = `
+        INSERT INTO events (title, description, date, time, location, organizer, category, recurrence, endDate, recurrenceDates)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    // Preparing query parameters
+    const params = [
+        title,
+        description,
+        date,
+        time,
+        location,
+        organizer,
+        category,
+        recurrence,
+        endDate || null,
+        JSON.stringify(recurrenceDates) || null
+    ];
+
+    // Execute the query
+    db.query(query, params, (err, result) => {
+        if (err) {
+            console.error('Error inserting event:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.status(201).json({ id: result.insertId, message: 'Event added successfully' });
+    });
+});
+
 // Add a new event
 router.put('/:id', (req, res) => {
     const eventId = req.params.id;

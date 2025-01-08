@@ -1,7 +1,5 @@
 const express = require('express')
 const router = express.Router()
-const multer = require('multer')
-const path = require('path')
 const db = require('../db')
 require('dotenv').config()
 
@@ -80,5 +78,6 @@ router.delete('/area-coordinators/:id', (req, res) => {
 		}
 	})
 })
+
 
 module.exports = router

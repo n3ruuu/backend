@@ -118,29 +118,31 @@ router.put('/update/:id', (req, res) => {
 	})
 })
 
-// PUT or PATCH route to update member status
+// PUT route to update the application status for a member
 router.put('/members/:id', (req, res) => {
-	const memberId = req.params.id
-	const { status } = req.body
+    const memberId = req.params.id
+    const { applicationStatus } = req.body
 
-	// Validate status value
-	if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
-		return res.status(400).send({ message: 'Invalid status value' })
-	}
+    // Validate applicationStatus value
+    if (!['Pending', 'Approved', 'Rejected'].includes(applicationStatus)) {
+        return res.status(400).send({ message: 'Invalid application status value' })
+    }
 
-	// SQL query to update status
-	const query = 'UPDATE members SET status = ? WHERE id = ?'
-	db.query(query, [status, memberId], (err, result) => {
-		if (err) {
-			console.error('Error updating status:', err)
-			return res.status(500).send({ message: 'Error updating status' })
-		}
-		if (result.affectedRows > 0) {
-			res.status(200).send({ message: 'Status updated successfully' })
-		} else {
-			res.status(404).send({ message: 'Member not found' })
-		}
-	})
+    // SQL query to update applicationStatus in the database
+    const query = 'UPDATE registrations SET applicationStatus = ? WHERE id = ?'
+    db.query(query, [applicationStatus, memberId], (err, result) => {
+        if (err) {
+            console.error('Error updating application status:', err)
+            return res.status(500).send({ message: 'Error updating application status' })
+        }
+        if (result.affectedRows > 0) {
+            res.status(200).send({ message: 'Application status updated successfully' })
+        } else {
+            res.status(404).send({ message: 'Member not found' })
+        }
+    })
 })
+
+
 
 module.exports = router

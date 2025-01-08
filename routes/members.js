@@ -388,68 +388,73 @@ router.post('/import-csv', (req, res) => {
 	})
 })
 
-router.post('/register', upload.single('form_path'), (req, res) => {
-	const formPath = req.file ? req.file.path : null // Store the file path from the uploaded file
-
+router.post('/register', upload.array('requirements', 3), (req, res) => {
 	const {
-		firstName,
-		lastName,
-		middleName,
-		extension,
-		dob,
-		sex,
-		civilStatus,
-		address,
-		contactNumber,
-		medicalConditions,
-		medications,
-		guardianFirstName,
-		guardianMiddleName,
-		guardianLastName,
-		guardianEmail,
-		guardianContact,
-		guardianRelationship,
-	} = req.body
-
-	// Add the formPath to the insert query
+	  firstName,
+	  lastName,
+	  middleName,
+	  extension,
+	  dob,
+	  sex,
+	  civilStatus,
+	  placeOfBirth,
+	  occupation,
+	  address,
+	  contactNumber,
+	  nameOfSpouse,
+	  education,
+	  guardianFirstName,
+	  guardianMiddleName,
+	  guardianLastName,
+	  guardianEmail,
+	  guardianContact,
+	  guardianRelationship,
+	  applicationType,
+	} = req.body;
+  
+	// Collect the filenames of the uploaded files
+	const requirement1 = req.files[0] ? req.files[0].filename : null;
+	const requirement2 = req.files[1] ? req.files[1].filename : null;
+	const requirement3 = req.files[2] ? req.files[2].filename : null;
+  
+	// Set default applicationStatus to 'pending'
+	const applicationStatus = 'Pending';
+  
+	// SQL query to insert data into the database
 	const query = `
-      INSERT INTO members (
-        firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, 
-        medicalConditions, medications, guardianFirstName, guardianMiddleName, guardianLastName, 
-        guardianEmail, guardianContact, guardianRelationship, form_path, status
-      ) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
-
+	  INSERT INTO registrations (
+		firstName, lastName, middleName, extension, dob, sex, civilStatus, placeOfBirth, occupation, address, contactNumber,
+		nameOfSpouse, education, guardianFirstName, guardianMiddleName, guardianLastName, guardianEmail, guardianContact,
+		guardianRelationship, applicationType, requirement1, requirement2, requirement3, applicationStatus
+	  ) VALUES (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`;
+  
+	// Values to insert
 	const values = [
-		firstName,
-		lastName,
-		middleName,
-		extension,
-		dob,
-		sex,
-		civilStatus,
-		address,
-		contactNumber,
-		medicalConditions ? medicalConditions.join(',') : '',
-		medications ? medications.join(',') : '',
-		guardianFirstName,
-		guardianMiddleName,
-		guardianLastName,
-		guardianEmail,
-		guardianContact,
-		guardianRelationship,
-		formPath, // Add the form path here
-		'Pending', // Default status
-	]
-
+	  firstName, lastName, middleName, extension, dob, sex, civilStatus, placeOfBirth, occupation, address, contactNumber,
+	  nameOfSpouse, education, guardianFirstName, guardianMiddleName, guardianLastName, guardianEmail, guardianContact,
+	  guardianRelationship, applicationType, requirement1, requirement2, requirement3, applicationStatus
+	];
+  
+	// Execute the query
 	db.query(query, values, (err, result) => {
+	  if (err) {
+		console.error('Error inserting data into database:', err);
+		return res.status(500).json({ error: 'Failed to submit registration' });
+	  }
+	  return res.status(201).json({ message: 'Registration successful' });
+	});
+  });
+
+  // Endpoint to get all members
+router.get('/registrations', (req, res) => {
+	const query = 'SELECT * FROM registrations'
+	db.query(query, (err, results) => {
 		if (err) {
-			console.error('Error executing query:', err)
-			return res.status(500).json({ error: 'Error saving data: ' + err.message })
+			return res.status(500).json({ error: err.message })
 		}
-		res.status(201).json({ message: 'Member added successfully' })
+		res.status(200).json(results)
 	})
 })
-
+  
 module.exports = router

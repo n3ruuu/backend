@@ -12,7 +12,7 @@ require('dotenv').config()
 const upload = multer({ dest: 'uploads/' })
 
 router.post('/send-email', upload.single('image'), (req, res) => {
-	const { message, recipients } = req.body
+	const { subject, message, recipients } = req.body
 	const image = req.file // Get the uploaded image file
 
 	// Parse and sanitize recipient emails
@@ -39,21 +39,21 @@ router.post('/send-email', upload.single('image'), (req, res) => {
 		},
 	})
 
-	// Prepare email details
-	const mailOptions = {
-		from: process.env.EMAIL_USER,
-		to: recipientList,
-		subject: 'Subject of the Email', // You can make this dynamic if needed
-		text: message,
-		attachments: image
-			? [
-					{
-						filename: path.basename(image.originalname),
-						path: image.path, // Path to the uploaded image
-					},
-			  ]
-			: [],
-	}
+		// Prepare email details
+		const mailOptions = {
+			from: process.env.EMAIL_USER,
+			to: recipientList,
+			subject: subject, // You can make this dynamic if needed
+			text: message,
+			attachments: image
+				? [
+						{
+							filename: path.basename(image.originalname),
+							path: image.path, // Path to the uploaded image
+						},
+				]
+				: [],
+		}
 
 	// Send the email
 	transporter.sendMail(mailOptions, (error, info) => {

@@ -79,5 +79,70 @@ router.delete('/area-coordinators/:id', (req, res) => {
 	})
 })
 
+// Route to get the signatory (only one signatory)
+router.get("/signatory", (req, res) => {
+    db.query("SELECT * FROM signatory LIMIT 1", (err, results) => {
+        if (err) {
+            console.error("Error fetching signatory:", err);
+            return res.status(500).send("Error fetching signatory.");
+        }
+        res.status(200).json(results);
+    });
+});
+
+// Route to add or update the signatory (only one can exist)
+router.post("/signatory", (req, res) => {
+    const { name, position } = req.body;
+
+    // Check if a signatory already exists
+    db.query("SELECT * FROM signatory LIMIT 1", (err, results) => {
+        if (err) {
+            console.error("Error checking for existing signatory:", err);
+            return res.status(500).send("Error checking signatory.");
+        }
+
+        if (results.length > 0) {
+            // If signatory exists, update it
+            db.query(
+                "UPDATE signatory SET name = ?, position = ? WHERE id = 1",
+                [name, position],
+                (err, updateResults) => {
+                    if (err) {
+                        console.error("Error updating signatory:", err);
+                        return res.status(500).send("Error updating signatory.");
+                    }
+                    res.status(200).send("Signatory updated successfully.");
+                }
+            );
+        } else {
+            // If no signatory exists, create a new one
+            db.query(
+                "INSERT INTO signatory (name, position) VALUES (?, ?)",
+                [name, position],
+                (err, insertResults) => {
+                    if (err) {
+                        console.error("Error creating signatory:", err);
+                        return res.status(500).send("Error creating signatory.");
+                    }
+                    res.status(201).send("Signatory created successfully.");
+                }
+            );
+        }
+    });
+});
+
+// Route to delete the signatory
+router.delete("/signatory/:id", (req, res) => {
+    const { id } = req.params;
+
+    // Only one signatory exists, so we just need to delete that
+    db.query("DELETE FROM signatory WHERE id = 1", (err, results) => {
+        if (err) {
+            console.error("Error deleting signatory:", err);
+            return res.status(500).send("Error deleting signatory.");
+        }
+        res.status(200).send("Signatory deleted successfully.");
+    });
+});
 
 module.exports = router

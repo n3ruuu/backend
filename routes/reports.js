@@ -20,6 +20,51 @@ const storage = multer.diskStorage({
 // Initialize multer with the storage configuration
 const upload = multer({ storage: storage })
 
+// DELETE endpoint to remove a report from the database
+router.delete('/delete/:id', (req, res) => {
+    const reportId = req.params.id
+
+    // Step 1: Retrieve the file path of the report from the database
+    const query = 'SELECT pdf_file_path FROM reports WHERE id = ?'
+    db.query(query, [reportId], (err, result) => {
+        if (err) {
+            console.error('Error retrieving report:', err)
+            return res.status(500).json({ error: 'Failed to retrieve report for deletion' })
+        }
+
+        if (result.length === 0) {
+            return res.status(404).json({ error: 'Report not found' })
+        }
+
+        // Get the file path of the uploaded report
+        const filePath = result[0].pdf_file_path
+
+        // Step 2: Delete the report from the database
+        const deleteQuery = 'DELETE FROM reports WHERE id = ?'
+        db.query(deleteQuery, [reportId], (err, deleteResult) => {
+            if (err) {
+                console.error('Error deleting report:', err)
+                return res.status(500).json({ error: 'Failed to delete report from database' })
+            }
+
+            // Step 3: Optionally delete the associated file from the server (if applicable)
+            const fs = require('fs')
+            if (filePath) {
+                fs.unlink(filePath, (err) => {
+                    if (err) {
+                        console.error('Error deleting file:', err)
+                        return res.status(500).json({ error: 'Failed to delete the file' })
+                    }
+                })
+            }
+
+            // Step 4: Return success response
+            res.status(200).json({ message: 'Report deleted successfully' })
+        })
+    })
+})
+
+
 // Handle saving report (including the file path) in the database
 router.post('/save-report', upload.single('reportFile'), (req, res) => {
 	const { reportName, reportType, createdBy, createdAt, pdfFilePath } = req.body

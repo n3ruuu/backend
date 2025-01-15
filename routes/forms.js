@@ -39,6 +39,32 @@ router.get('/', (req, res) => {
 	})
 })
 
+// Delete a form by ID
+router.delete('/:id', (req, res) => {
+    const formId = req.params.id; // Get the form ID from the route parameter
+
+    // SQL query to delete form from the database
+    const query = `DELETE FROM forms WHERE id = ?`;
+
+    db.query(query, [formId], (err, result) => {
+        if (err) {
+            console.error('Error deleting form:', err.message);
+            return res.status(500).json({
+                error: 'An error occurred while deleting the form.',
+            });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Form not found.' });
+        }
+
+        res.status(200).json({
+            message: 'Form deleted successfully.',
+        });
+    });
+});
+
+
 router.post('/', upload.single('pdf'), (req, res) => {
 	console.log('Request Body:', req.body) // Log incoming form fields
 	console.log('Uploaded File:', req.file) // Log uploaded file

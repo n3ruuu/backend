@@ -25,6 +25,46 @@ function formatDate(date) {
 	return new Date(date).toISOString().slice(0, 19).replace('T', ' ') // Format the provided date
 }
 
+// Delete a news article by ID
+router.delete('/:id', (req, res) => {
+    const { id } = req.params;
+
+    // First, check if the article exists
+    const checkExistenceQuery = 'SELECT id FROM news WHERE id = ?';
+
+    db.query(checkExistenceQuery, [id], (err, result) => {
+        if (err) {
+            console.error('Error checking article existence:', err.message);
+            return res.status(500).json({
+                error: 'An error occurred while checking if the news article exists.',
+            });
+        }
+
+        if (result.length === 0) {
+            return res.status(404).json({
+                error: 'News article not found.',
+            });
+        }
+
+        // Proceed to delete the article
+        const deleteQuery = 'DELETE FROM news WHERE id = ?';
+
+        db.query(deleteQuery, [id], (err, result) => {
+            if (err) {
+                console.error('Error deleting article:', err.message);
+                return res.status(500).json({
+                    error: 'An error occurred while deleting the news article.',
+                });
+            }
+
+            res.status(200).json({
+                message: 'News article deleted successfully.',
+            });
+        });
+    });
+});
+
+
 // Fetch all active news articles
 router.get('/', (req, res) => {
 	const query = 'SELECT id, headline, author, body, date, images, status FROM news'

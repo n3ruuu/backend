@@ -66,6 +66,26 @@ router.post('/send-email', upload.single('image'), (req, res) => {
 	})
 })
 
+// Delete an event
+router.delete('/delete/:id', (req, res) => {
+    const eventId = req.params.id;
+
+    // Query to delete the event by its ID
+    const query = 'DELETE FROM events WHERE id = ?';
+
+    // Execute the query
+    db.query(query, [eventId], (err, result) => {
+        if (err) {
+            console.error('Error deleting event:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+        res.status(200).json({ message: 'Event deleted successfully' });
+    });
+});
+
 
 // Add a new event
 router.post('/', (req, res) => {

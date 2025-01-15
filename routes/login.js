@@ -61,4 +61,49 @@ router.get('/check-email', (req, res) => {
 	})
 })
 
+const createTableAndInsertDefaultAdmin = () => {
+	const createTableQuery = `
+	  CREATE TABLE IF NOT EXISTS admins (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		username VARCHAR(255) NOT NULL,
+		password VARCHAR(255) NOT NULL,
+		email VARCHAR(255) NOT NULL
+	  )
+	`;
+  
+	db.query(createTableQuery, (err, result) => {
+	  if (err) {
+		console.error('Error creating table:', err.message);
+		return;
+	  }
+	  console.log('Table ensured (created if not exists)');
+  
+	  // Now, check if the default admin exists
+	  const checkAdminQuery = 'SELECT * FROM admins WHERE username = ?';
+	  db.query(checkAdminQuery, ['admin'], (err, results) => {
+		if (err) {
+		  console.error('Error checking admin existence:', err.message);
+		  return;
+		}
+  
+		if (results.length === 0) {
+		  const insertQuery = 'INSERT INTO admins (username, password, email) VALUES (?, ?, ?)';
+		  db.query(insertQuery, ['admin', 'Elderlink2025', 'elderlinkinfo2025@gmail.com'], (err, result) => {
+			if (err) {
+			  console.error('Error inserting default admin:', err.message);
+			  return;
+			}
+  
+			console.log('Default admin inserted successfully');
+		  });
+		} else {
+		  console.log('Default admin already exists');
+		}
+	  });
+	});
+  };
+  
+  // Call the function when the server starts
+  createTableAndInsertDefaultAdmin();
+
 module.exports = router

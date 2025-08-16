@@ -6,6 +6,7 @@ const db = require('../db')
 require('dotenv').config()
 const multer = require('multer')
 const path = require('path')
+const moment = require('moment')
 
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {
@@ -128,22 +129,24 @@ router.get('/', (req, res) => {
 })
 
 router.delete('/:id', (req, res) => {
-    const memberId = req.params.id;
-    
-    const query = 'DELETE FROM members WHERE id = ?';
-    
-    db.query(query, [memberId], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
+	const memberId = req.params.id
 
-        if (results.affectedRows === 0) {
-            return res.status(404).json({ message: 'Member not found' });
-        }
+	// SQL query to delete a member by ID
+	const query = 'DELETE FROM members WHERE id = ?'
 
-        res.status(200).json({ message: 'Member deleted successfully' });
-    });
-});
+	db.query(query, [memberId], (err, results) => {
+		if (err) {
+			console.error('Database error:', err)
+			return res.status(500).json({ error: 'An error occurred while deleting the member.' })
+		}
+
+		if (results.affectedRows === 0) {
+			return res.status(404).json({ message: 'Member not found' })
+		}
+
+		res.status(200).json({ message: 'Member deleted successfully' })
+	})
+})
 
 // PUT route to update member status
 router.put('/archive/:id', (req, res) => {
@@ -202,26 +205,44 @@ router.put('/archive/:id', (req, res) => {
 	})
 })
 
-// PUT route to update a specific member
 router.put('/members-list/:id', (req, res) => {
-	const memberId = req.params.id // Extract the member ID from the URL
+	const memberId = req.params.id
 	const { firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, controlNo, purchaseBookletNo, medicineBookletNo, dateIssued } = req.body
 
-	// Check if optional fields are provided, otherwise set them to null
 	const updatedPurchaseBookletNo = purchaseBookletNo || null
 	const updatedMedicineBookletNo = medicineBookletNo || null
-	const updatedDateIssued = dateIssued || null
+	const dobFormatted = dob ? moment(dob).format('YYYY-MM-DD') : null
+	const dateIssuedFormatted = dateIssued ? moment(dateIssued).format('YYYY-MM-DD') : null
 
-	// Perform the update query (example for MySQL)
 	const query = `
-        UPDATE members SET
-        firstName = ?, lastName = ?, middleName = ?, extension = ?, dob = ?, sex = ?, civilStatus = ?, address = ?, contactNumber = ?, controlNo = ?, purchaseBookletNo = ?, medicineBookletNo = ?, dateIssued = ?
-        WHERE id = ?
-    `
-	const values = [firstName, lastName, middleName, extension, dob, sex, civilStatus, address, contactNumber, controlNo, updatedPurchaseBookletNo, updatedMedicineBookletNo, updatedDateIssued, memberId]
+    UPDATE members SET
+      firstName = ?, lastName = ?, middleName = ?, extension = ?,
+      dob = ?, sex = ?, civilStatus = ?, address = ?, contactNumber = ?,
+      controlNo = ?, purchaseBookletNo = ?, medicineBookletNo = ?, dateIssued = ?
+    WHERE id = ?
+  `
+	const values = [
+		firstName,
+		lastName,
+		middleName,
+		extension,
+		dobFormatted,
+		sex,
+		civilStatus,
+		address,
+		contactNumber,
+		controlNo,
+		updatedPurchaseBookletNo,
+		updatedMedicineBookletNo,
+		dateIssuedFormatted,
+		memberId,
+	]
+
+	console.log('Updating member with values:', values)
 
 	db.query(query, values, (err, result) => {
 		if (err) {
+			console.error('MySQL Error:', err)
 			return res.status(500).json({ error: err.message })
 		}
 		if (result.affectedRows > 0) {
@@ -408,36 +429,36 @@ router.post('/import-csv', (req, res) => {
 
 router.post('/register', upload.array('requirements', 3), (req, res) => {
 	const {
-	  firstName,
-	  lastName,
-	  middleName,
-	  extension,
-	  dob,
-	  sex,
-	  civilStatus,
-	  placeOfBirth,
-	  occupation,
-	  address,
-	  contactNumber,
-	  nameOfSpouse,
-	  education,
-	  guardianFirstName,
-	  guardianMiddleName,
-	  guardianLastName,
-	  guardianEmail,
-	  guardianContact,
-	  guardianRelationship,
-	  applicationType,
-	} = req.body;
-  
+		firstName,
+		lastName,
+		middleName,
+		extension,
+		dob,
+		sex,
+		civilStatus,
+		placeOfBirth,
+		occupation,
+		address,
+		contactNumber,
+		nameOfSpouse,
+		education,
+		guardianFirstName,
+		guardianMiddleName,
+		guardianLastName,
+		guardianEmail,
+		guardianContact,
+		guardianRelationship,
+		applicationType,
+	} = req.body
+
 	// Collect the filenames of the uploaded files
-	const requirement1 = req.files[0] ? req.files[0].filename : null;
-	const requirement2 = req.files[1] ? req.files[1].filename : null;
-	const requirement3 = req.files[2] ? req.files[2].filename : null;
-  
+	const requirement1 = req.files[0] ? req.files[0].filename : null
+	const requirement2 = req.files[1] ? req.files[1].filename : null
+	const requirement3 = req.files[2] ? req.files[2].filename : null
+
 	// Set default applicationStatus to 'pending'
-	const applicationStatus = 'Pending';
-  
+	const applicationStatus = 'Pending'
+
 	// SQL query to insert data into the database
 	const query = `
 	  INSERT INTO registrations (
@@ -445,26 +466,47 @@ router.post('/register', upload.array('requirements', 3), (req, res) => {
 		nameOfSpouse, education, guardianFirstName, guardianMiddleName, guardianLastName, guardianEmail, guardianContact,
 		guardianRelationship, applicationType, requirement1, requirement2, requirement3, applicationStatus
 	  ) VALUES (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`;
-  
+	`
+
 	// Values to insert
 	const values = [
-	  firstName, lastName, middleName, extension, dob, sex, civilStatus, placeOfBirth, occupation, address, contactNumber,
-	  nameOfSpouse, education, guardianFirstName, guardianMiddleName, guardianLastName, guardianEmail, guardianContact,
-	  guardianRelationship, applicationType, requirement1, requirement2, requirement3, applicationStatus
-	];
-  
+		firstName,
+		lastName,
+		middleName,
+		extension,
+		dob,
+		sex,
+		civilStatus,
+		placeOfBirth,
+		occupation,
+		address,
+		contactNumber,
+		nameOfSpouse,
+		education,
+		guardianFirstName,
+		guardianMiddleName,
+		guardianLastName,
+		guardianEmail,
+		guardianContact,
+		guardianRelationship,
+		applicationType,
+		requirement1,
+		requirement2,
+		requirement3,
+		applicationStatus,
+	]
+
 	// Execute the query
 	db.query(query, values, (err, result) => {
-	  if (err) {
-		console.error('Error inserting data into database:', err);
-		return res.status(500).json({ error: 'Failed to submit registration' });
-	  }
-	  return res.status(201).json({ message: 'Registration successful' });
-	});
-  });
+		if (err) {
+			console.error('Error inserting data into database:', err)
+			return res.status(500).json({ error: 'Failed to submit registration' })
+		}
+		return res.status(201).json({ message: 'Registration successful' })
+	})
+})
 
-  // Endpoint to get all members
+// Endpoint to get all members
 router.get('/registrations', (req, res) => {
 	const query = 'SELECT * FROM registrations'
 	db.query(query, (err, results) => {
@@ -474,5 +516,5 @@ router.get('/registrations', (req, res) => {
 		res.status(200).json(results)
 	})
 })
-  
+
 module.exports = router

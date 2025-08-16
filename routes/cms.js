@@ -90,7 +90,6 @@ router.get("/signatory", (req, res) => {
     });
 });
 
-// Route to add or update the signatory (only one can exist)
 router.post("/signatory", (req, res) => {
     const { name, position } = req.body;
 
@@ -103,15 +102,16 @@ router.post("/signatory", (req, res) => {
 
         if (results.length > 0) {
             // If signatory exists, update it
+            const existingId = results[0].id;
             db.query(
-                "UPDATE signatory SET name = ?, position = ? WHERE id = 1",
-                [name, position],
+                "UPDATE signatory SET name = ?, position = ? WHERE id = ?",
+                [name, position, existingId],
                 (err, updateResults) => {
                     if (err) {
                         console.error("Error updating signatory:", err);
                         return res.status(500).send("Error updating signatory.");
                     }
-                    res.status(200).send("Signatory updated successfully.");
+                    res.status(200).json({ id: existingId, name, position });
                 }
             );
         } else {
@@ -124,19 +124,18 @@ router.post("/signatory", (req, res) => {
                         console.error("Error creating signatory:", err);
                         return res.status(500).send("Error creating signatory.");
                     }
-                    res.status(201).send("Signatory created successfully.");
+                    res.status(201).json({ id: insertResults.insertId, name, position });
                 }
             );
         }
     });
 });
 
-// Route to delete the signatory
+
 router.delete("/signatory/:id", (req, res) => {
     const { id } = req.params;
 
-    // Only one signatory exists, so we just need to delete that
-    db.query("DELETE FROM signatory WHERE id = 1", (err, results) => {
+    db.query("DELETE FROM signatory WHERE id = ?", [id], (err, results) => {
         if (err) {
             console.error("Error deleting signatory:", err);
             return res.status(500).send("Error deleting signatory.");
@@ -144,5 +143,6 @@ router.delete("/signatory/:id", (req, res) => {
         res.status(200).send("Signatory deleted successfully.");
     });
 });
+
 
 module.exports = router

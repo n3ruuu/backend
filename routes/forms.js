@@ -191,21 +191,44 @@ router.post("/initiatives", upload.single("icon"), (req, res) => {
 });
 
 router.delete("/initiatives/:id", (req, res) => {
-    const categoryId = req.params.id; // Get the category ID from the route parameter
-    
-    const query = `DELETE FROM initiatives WHERE id = ?`; // Delete query based on category ID
-    
-    db.query(query, [categoryId], (err, result) => {
+    const categoryId = req.params.id;
+
+    // First, get the category_name for this initiative
+    const getCategoryQuery = `SELECT category_name FROM initiatives WHERE id = ?`;
+
+    db.query(getCategoryQuery, [categoryId], (err, categoryResult) => {
         if (err) {
-            console.error("Error deleting category:", err);
+            console.error("Error fetching category name:", err);
             return res.status(500).json({ message: "Failed to delete category" });
         }
-        
-        if (result.affectedRows === 0) {
+
+        if (categoryResult.length === 0) {
             return res.status(404).json({ message: "Category not found" });
         }
 
-        res.status(200).json({ message: "Category deleted successfully" });
+        const categoryName = categoryResult[0].category_name;
+
+        // Delete the initiative
+        const deleteInitiativeQuery = `DELETE FROM initiatives WHERE id = ?`;
+        db.query(deleteInitiativeQuery, [categoryId], (err, initiativeResult) => {
+            if (err) {
+                console.error("Error deleting category:", err);
+                return res.status(500).json({ message: "Failed to delete category" });
+            }
+
+            // Delete all forms that belong to this category
+            const deleteFormsQuery = `DELETE FROM forms WHERE category = ?`;
+            db.query(deleteFormsQuery, [categoryName], (err, formsResult) => {
+                if (err) {
+                    console.error("Error deleting forms for category:", err);
+                    return res.status(500).json({ message: "Failed to delete forms for category" });
+                }
+
+                res.status(200).json({
+                    message: `Category and its ${formsResult.affectedRows} forms deleted successfully`
+                });
+            });
+        });
     });
 });
 

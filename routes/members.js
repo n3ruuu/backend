@@ -131,20 +131,29 @@ router.get('/', (req, res) => {
 router.delete('/:id', (req, res) => {
 	const memberId = req.params.id
 
-	// SQL query to delete a member by ID
-	const query = 'DELETE FROM members WHERE id = ?'
+	// First, delete related rows in social_pension
+	const deleteChildQuery = 'DELETE FROM social_pension WHERE member_id = ?'
 
-	db.query(query, [memberId], (err, results) => {
+	db.query(deleteChildQuery, [memberId], (err, childResults) => {
 		if (err) {
-			console.error('Database error:', err)
-			return res.status(500).json({ error: 'An error occurred while deleting the member.' })
+			console.error('Database error (child delete):', err)
+			return res.status(500).json({ error: 'An error occurred while deleting related records.' })
 		}
 
-		if (results.affectedRows === 0) {
-			return res.status(404).json({ message: 'Member not found' })
-		}
+		// Then, delete the member
+		const deleteMemberQuery = 'DELETE FROM members WHERE id = ?'
+		db.query(deleteMemberQuery, [memberId], (err, results) => {
+			if (err) {
+				console.error('Database error (member delete):', err)
+				return res.status(500).json({ error: 'An error occurred while deleting the member.' })
+			}
 
-		res.status(200).json({ message: 'Member deleted successfully' })
+			if (results.affectedRows === 0) {
+				return res.status(404).json({ message: 'Member not found' })
+			}
+
+			res.status(200).json({ message: 'Member and related records deleted successfully' })
+		})
 	})
 })
 
